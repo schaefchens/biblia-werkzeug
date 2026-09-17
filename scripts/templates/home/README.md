@@ -122,15 +122,25 @@ npm run doctor                 # prüft, ob alles bereit ist
 
 `npm run doctor` sagt im Klartext, was noch fehlt.
 
-### Wenn `werkzeug/` leer ist
+### „Cannot find module" — wenn `werkzeug/` leer ist
 
-Dann wurde beim Holen das `--recurse-submodules` vergessen. Einmalig
-nachholen:
+Sieht ein Befehl so aus:
+
+```
+Error: Cannot find module '.../werkzeug/scripts/check.mjs'
+```
+
+dann wurde beim Holen das `--recurse-submodules` vergessen und der Ordner
+`werkzeug/` ist leer geblieben. Einmalig nachholen:
 
 ```bash
 git submodule update --init
 npm run setup
 ```
+
+Das ist der häufigste Fehler beim Einrichten — und der einzige, bei dem
+`npm run doctor` nicht weiterhelfen kann: das Programm, das die Prüfung
+ausführt, liegt selbst in `werkzeug/`.
 
 ---
 

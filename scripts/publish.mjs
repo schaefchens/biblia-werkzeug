@@ -89,7 +89,7 @@ function commitChanges(home, summary) {
   // nebenbei. So kann ein versehentlich verschobenes Submodul nie
   // mitgesichert werden.
   git(home.root, ['add', '--', 'content', 'config', 'i18n', 'theme.css',
-    'package.json', 'biblia.mjs', 'README.md', '.gitignore', '.gitattributes', 'sftp.env.example']);
+    'package.json', 'README.md', '.gitignore', '.gitattributes', 'sftp.env.example']);
 
   const staged = git(home.root, ['diff', '--cached', '--name-only'], { allowFailure: true }) ?? '';
   if (staged.trim() === '') {
