@@ -1,11 +1,7 @@
 # Zeilenenden plattformübergreifend vereinheitlichen.
 # Ohne das erzeugen Windows und macOS unterschiedliche Datei-Hashes,
-# was den inkrementellen Build und das Deployment unnötig arbeiten lässt.
+# was den inkrementellen Build und das Hochladen unnötig arbeiten lässt.
 * text=auto eol=lf
-
-# Druck-PDFs sind die Quelldateien und werden schnell sehr groß.
-# Git LFS hält das Repository auch bei hunderten Flyern handhabbar.
-*.pdf filter=lfs diff=lfs merge=lfs -text
 
 # Binärdateien nicht als Text behandeln
 *.png  binary
@@ -15,3 +11,7 @@
 *.avif binary
 *.woff2 binary
 *.ico  binary
+
+# Hinweis: Die Druck-PDFs liegen im Inhaltsordner, nicht hier. Die
+# Git-LFS-Regel dafür steht in dessen .gitattributes — siehe
+# scripts/templates/home/gitattributes.

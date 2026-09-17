@@ -1,16 +1,15 @@
 # Abhängigkeiten
 node_modules/
 
-# Lokal erzeugte Dateien — werden jederzeit neu gebaut
-dist/
-generated/
-print-assets/
+# Inhaltsordner für die Entwicklung am Werkzeug (siehe scripts/init.mjs).
+# Mit führendem Schrägstrich: sonst wäre auch scripts/templates/home/
+# ausgenommen, und das Werkzeug käme ohne seine Vorlagen.
+/home/
 
-# Laufzeitdaten vom Server.
-# ACHTUNG: enthält Namen und Postadressen. Niemals ins Git-Repository aufnehmen.
+# Sicherheitsnetz. Hier gehört beides nicht hin — es liegt im
+# Inhaltsordner —, aber ein versehentlicher Commit wäre teuer:
+# app-data/ enthält Namen und Postadressen, sftp.env ein Passwort.
 app-data/
-
-# Zugangsdaten für das Deployment
 sftp.env
 
 # Betriebssystem und Editoren
@@ -19,8 +18,3 @@ Thumbs.db
 *.log
 .idea/
 .vscode/
-
-# Entwicklungs-Inhaltsordner (siehe scripts/init.mjs).
-# Mit fuehrendem Schraegstrich: sonst waere auch scripts/templates/home/
-# ausgenommen, und das Werkzeug kaeme ohne seine Vorlagen.
-/home/
