@@ -2,7 +2,8 @@
  * Die zwei Verzeichnisbäume dieses Projekts.
  *
  * SYS  — das Werkzeug. Kommt mit jedem Update mit und gehört niemandem
- *        persönlich: Skripte, Vorlagen, Stilvorlagen, PHP-Endpunkte.
+ *        persönlich: Skripte, Vorlagen, Stilvorlagen, PHP-Endpunkte und
+ *        die Redaktionsoberfläche.
  *
  * home — der Inhaltsordner. Alles, was dem Verein gehört: Flyer, Seiten,
  *        Einstellungen, Zugangsdaten, Bestelldaten und die erzeugte Website.

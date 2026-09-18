@@ -9,6 +9,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "assistant": "node scripts/assistant.mjs",
     "init": "node scripts/init.mjs",
     "check": "node scripts/check.mjs",
     "build": "node scripts/build.mjs",

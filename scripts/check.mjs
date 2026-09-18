@@ -6,96 +6,21 @@
  *
  *   --strict   Hinweise wie Fehler behandeln
  *   --fix      Erkannte Umbenennungen automatisch in slug_history eintragen
+ *
+ * Was geprüft wird, steht in scripts/lib/check.mjs. Hier steht nur, wie das
+ * Ergebnis aussieht — damit die Oberfläche des Redaktionsassistenten
+ * dieselben Prüfungen benutzen kann und nicht versehentlich weniger.
  */
-import fs from 'node:fs';
-import { execFileSync } from 'node:child_process';
-
 import { resolveHome, rel } from './lib/paths.mjs';
 import { loadConfig } from './lib/config.mjs';
-import { loadContent, isScheduled } from './lib/content.mjs';
+import { loadContent } from './lib/content.mjs';
 import { loadI18n } from './lib/i18n.mjs';
-import { applyReleaseChecks } from './lib/release.mjs';
-import { parseRenames, parseHistoricIds, vanishedIds } from './lib/history.mjs';
-import { collectRedirects } from './lib/redirects.mjs';
-import { isRepositoryRoot } from './lib/repo.mjs';
+import { checkContent } from './lib/check.mjs';
 import { blank, color, formatBytes, heading, info, ok, warn, error, runMain, plural } from './lib/log.mjs';
 
 const args = process.argv.slice(2);
 const strict = args.includes('--strict');
 const fix = args.includes('--fix');
-
-/**
- * Fragt Git im Inhaltsordner, oder liefert null.
- *
- * Ausdrücklich der Inhaltsordner: das Werkzeug unter werkzeug/ ist ein
- * eigenes Repository. Würde dessen Geschichte gelesen, fände sich dort
- * kein einziger Flyer — und die Prüfungen auf umbenannte und verschwundene
- * Nummern gingen lautlos ins Leere.
- */
-function git(cwd, argv) {
-  try {
-    return execFileSync('git', argv, {
-      cwd,
-      encoding: 'utf8',
-      maxBuffer: 32 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Findet Flyer, deren Ordner umbenannt wurde.
- *
- * Ohne die Historie aus slug_history brechen geteilte Links und
- * Suchergebnisse, sobald jemand einen Titel ändert.
- */
-function detectRenames(home, content) {
-  if (!isRepositoryRoot(home.root)) return [];
-  const output = git(home.root, ['log', '--diff-filter=R', '--name-status', '--format=', '-M', '--', 'content/flyers']);
-  if (output === null) return [];
-
-  const renames = [];
-  for (const { oldId, oldSlug, newDir } of parseRenames(output)) {
-    const flyer = content.flyers.find((f) => f.dirName === newDir);
-    if (!flyer) continue;
-    // Eine geänderte Nummer ist etwas anderes als ein geänderter Name: sie
-    // steht in gedruckten QR-Codes und lässt sich nicht weiterleiten.
-    if (oldId !== null && oldId !== flyer.id) {
-      renames.push({ flyer, oldSlug, oldId });
-      continue;
-    }
-    if (oldSlug === flyer.slug || flyer.slugHistory.includes(oldSlug)) continue;
-    renames.push({ flyer, oldSlug, oldId: null });
-  }
-  return renames;
-}
-
-/**
- * Jede Nummer, die es in diesem Projekt je gegeben hat.
- *
- * Die Nummer ist die einzige Zusage, die dieses Projekt nach aussen macht:
- * /f/123/ steht auf gedruckten Flyern und muss jahrelang funktionieren.
- * Wird ein Ordner gelöscht oder umnummeriert, fällt das ohne diese Prüfung
- * niemandem auf — die Inhalte für sich sind dann ja widerspruchsfrei.
- */
-function historicFlyerIds(home) {
-  // Ohne eigenes Repository würde Git im übergeordneten Ordner nachsehen
-  // und eine leere Geschichte liefern — die Prüfung sähe dann bestanden aus.
-  if (!isRepositoryRoot(home.root)) return null;
-  const output = git(home.root, ['log', '--pretty=format:', '--name-only', '--', 'content/flyers']);
-  return output === null ? null : parseHistoricIds(output);
-}
-
-/** Trägt einen früheren slug in flyer.md ein. */
-function appendSlugHistory(flyer, oldSlug) {
-  const text = fs.readFileSync(flyer.sourceFile, 'utf8');
-  const updated = /^slug_history:/m.test(text)
-    ? text.replace(/^slug_history:\s*(?:\[\s*\])?\s*$/m, `slug_history:\n  - ${oldSlug}`)
-    : text.replace(/^(slug:.*)$/m, `$1\nslug_history:\n  - ${oldSlug}`);
-  fs.writeFileSync(flyer.sourceFile, updated);
-}
 
 /** Gibt eine Gruppe von Meldungen zu einem Betreff aus. */
 function printGroup(subject, items) {
@@ -124,105 +49,44 @@ runMain(async () => {
   ok('Oberflächentexte vollständig');
 
   const content = loadContent(config, { dirs: home });
-  const { issues } = content;
+  const { issues, fixed, release, stats } = checkContent({ home, config, content, fix });
 
-  // Umbenennungen erkennen.
-  const renames = detectRenames(home, content);
-  for (const { flyer, oldSlug, oldId } of renames) {
-    if (oldId) {
-      issues.error(flyer.dirName, `Die dauerhafte Nummer wurde von ${oldId} auf ${flyer.id} geändert.`, {
-        file: flyer.sourceFile,
-        hint:
-          `Die Adresse /f/${oldId}/ steht auf gedruckten Flyern und ist damit unwiederbringlich kaputt.\n` +
-          `      Benenne den Ordner zurück auf ${oldId}-${flyer.slug} und setze  id: ${oldId}.`,
-      });
-      continue;
-    }
-    if (fix) {
-      appendSlugHistory(flyer, oldSlug);
-      ok(`${flyer.dirName}: früherer Name "${oldSlug}" in slug_history eingetragen`);
-    } else {
-      issues.warning(flyer.dirName, `Der Flyer hieß früher "${oldSlug}" — es fehlt eine Weiterleitung.`, {
-        file: flyer.sourceFile,
-        hint: 'Automatisch eintragen lassen mit:  npm run check -- --fix',
-      });
-    }
+  for (const { dirName, oldSlug } of fixed) {
+    ok(`${dirName}: früherer Name "${oldSlug}" in slug_history eingetragen`);
   }
-
-  // Verschwundene Nummern erkennen.
-  const historic = historicFlyerIds(home);
-  if (!historic) {
-    // Ohne Versionsgeschichte lässt sich nicht feststellen, ob eine Nummer
-    // verschwunden ist. Das still zu übergehen wäre das Gefährlichste:
-    // die Zusage hinter /f/123/ wäre dann ungeprüft.
-    issues.warning('Dauerhafte Adressen', 'Ohne Git lässt sich nicht prüfen, ob eine Nummer verschwunden ist.', {
-      hint:
-        'Die Adressen auf gedruckten Flyern sind damit ungeprüft.\n' +
-        '      Der Inhaltsordner sollte ein Git-Repository sein:  git init',
-    });
-  }
-  if (historic) {
-    for (const id of vanishedIds(historic, content.flyersById, config.retiredFlyerIds)) {
-      issues.error('Dauerhafte Adressen', `Die Nummer ${id} gab es schon einmal, heute gibt es sie nicht mehr.`, {
-        hint:
-          `Die Adresse /f/${id}/ liefert damit einen Fehler 404 — auch auf schon gedruckten Flyern.\n` +
-          `      Einen Flyer aus dem Verkehr ziehen:  status: archived (die Adresse bleibt erreichbar).\n` +
-          `      War die Nummer nie im Umlauf, in config/site.json eintragen:  "retiredFlyerIds": [${id}]`,
-      });
-    }
-  }
-
-  // Freigabe für die endgültige Domain.
-  const release = applyReleaseChecks({ config, content });
-
-  const total = content.flyers.length;
-  const withProblems = new Set(issues.items.map((i) => i.subject));
-  const complete = content.flyers.filter((f) => !withProblems.has(f.dirName)).length;
 
   blank();
-  ok(plural(total, 'Flyer gefunden', 'Flyer gefunden'));
-  ok(`${complete} vollständig`);
+  ok(plural(stats.total, 'Flyer gefunden', 'Flyer gefunden'));
+  ok(`${stats.complete} vollständig`);
 
   // Überblick je Sprache.
-  for (const lang of config.activeLanguages) {
-    const published = content.published(lang.code).length;
-    const drafts = content.flyers.filter((f) => f.status === 'draft' && f.languages[lang.code]).length;
-    const archived = content.flyers.filter((f) => f.status === 'archived' && f.languages[lang.code]).length;
-    const parts = [`${published} veröffentlicht`];
-    if (drafts > 0) parts.push(`${drafts} Entwurf`);
-    if (archived > 0) parts.push(`${archived} archiviert`);
+  for (const lang of stats.perLanguage) {
+    const parts = [`${lang.published} veröffentlicht`];
+    if (lang.drafts > 0) parts.push(`${lang.drafts} Entwurf`);
+    if (lang.archived > 0) parts.push(`${lang.archived} archiviert`);
     info(color.gray(`    ${lang.label}: ${parts.join(', ')}`));
   }
 
-  const scheduled = content.flyers.filter((f) => isScheduled(f));
-  if (scheduled.length > 0) {
+  if (stats.scheduled > 0) {
     info(
       color.gray(
-        `    ${plural(scheduled.length, 'Flyer ist geplant', 'Flyer sind geplant')} und erscheint erst beim nächsten Build nach dem jeweiligen Datum.`,
+        `    ${plural(stats.scheduled, 'Flyer ist geplant', 'Flyer sind geplant')} und erscheint erst beim nächsten Build nach dem jeweiligen Datum.`,
       ),
     );
   }
 
   // Umfang der Druckausgaben, die mit hochgeladen werden.
-  const downloads = content.flyers.filter((f) => f.download);
-  if (downloads.length > 0) {
-    let bytes = 0;
-    for (const flyer of downloads) {
-      for (const lang of Object.values(flyer.languages)) {
-        if (lang.hasOwnPdf && lang.pdf) bytes += fs.statSync(lang.pdf).size;
-      }
-    }
+  if (stats.downloads.count > 0) {
     info(
       color.gray(
-        `    ${plural(downloads.length, 'Flyer wird', 'Flyer werden')} zum Herunterladen angeboten — ${formatBytes(bytes)} zusätzlicher Upload.`,
+        `    ${plural(stats.downloads.count, 'Flyer wird', 'Flyer werden')} zum Herunterladen angeboten — ${formatBytes(stats.downloads.bytes)} zusätzlicher Upload.`,
       ),
     );
   }
 
-  const paid = content.flyers.filter((f) => f.order.enabled && f.order.price > 0);
-  if (paid.length > 0) {
+  if (stats.paid > 0) {
     blank();
-    warn(`${plural(paid.length, 'Flyer hat', 'Flyer haben')} einen Preis über 0 hinterlegt.`);
+    warn(`${plural(stats.paid, 'Flyer hat', 'Flyer haben')} einen Preis über 0 hinterlegt.`);
     info(
       color.gray(
         '    Sobald Geld verlangt wird, gelten die Informationspflichten des Fern- und Auswärtsgeschäfte-Gesetzes.',
@@ -231,11 +95,10 @@ runMain(async () => {
     info(color.gray('    Das ist vor der Veröffentlichung rechtlich zu klären.'));
   }
 
-  const redirects = collectRedirects({ config, content });
-  if (redirects.length > 0) {
+  if (stats.redirects > 0) {
     info(
       color.gray(
-        `    ${plural(redirects.length, 'frühere Adresse wird weitergeleitet', 'frühere Adressen werden weitergeleitet')}.`,
+        `    ${plural(stats.redirects, 'frühere Adresse wird weitergeleitet', 'frühere Adressen werden weitergeleitet')}.`,
       ),
     );
   }

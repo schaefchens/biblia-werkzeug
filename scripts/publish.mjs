@@ -22,6 +22,7 @@ import { loadContent } from './lib/content.mjs';
 import { applyReleaseChecks } from './lib/release.mjs';
 import { parseSubmoduleStatus, describeSubmoduleState } from './lib/werkzeug.mjs';
 import { isRepositoryRoot } from './lib/repo.mjs';
+import { existingPublishPaths } from './lib/git-home.mjs';
 import { build } from './build.mjs';
 import {
   blank, color, error, formatDuration, heading, info, ok, plural, runMain, step, warn, fail,
@@ -84,12 +85,14 @@ function commitChanges(home, summary) {
     return false;
   }
 
-  // Ausdrücklich ohne werkzeug/: welcher Stand des Werkzeugs gelten soll,
-  // entscheidet die Betreuung des Projekts — nicht ein Veröffentlichen
-  // nebenbei. So kann ein versehentlich verschobenes Submodul nie
-  // mitgesichert werden.
-  git(home.root, ['add', '--', 'content', 'config', 'i18n', 'theme.css',
-    'package.json', 'README.md', '.gitignore', '.gitattributes', 'sftp.env.example']);
+  // Die Liste steht in lib/git-home.mjs — dieselbe, aus der die
+  // Änderungsübersicht des Redaktionsassistenten entsteht. Ausdrücklich ohne
+  // werkzeug/: welcher Stand des Werkzeugs gelten soll, entscheidet die
+  // Betreuung des Projekts, nicht ein Veröffentlichen nebenbei.
+  //
+  // Gefiltert auf das, was es gibt: i18n/ und theme.css sind freiwillig, und
+  // "git add" bricht bei einem Pfad ab, den es nicht gibt.
+  git(home.root, ['add', '--', ...existingPublishPaths(home)]);
 
   const staged = git(home.root, ['diff', '--cached', '--name-only'], { allowFailure: true }) ?? '';
   if (staged.trim() === '') {

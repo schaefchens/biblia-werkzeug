@@ -129,17 +129,48 @@ Werkzeug, sagt dann, was zu tun ist, statt unverständlich abzubrechen.
 scripts/           Die Befehle
   lib/             Die Bausteine — hier steckt die Logik
   templates/home/  Vorlagen für einen neuen Inhaltsordner
-src/
+src/               Quelltext der öffentlichen Website
   templates/       Seitenvorlagen
   components/      Wiederverwendete Teile
   css/             Stilvorlagen
   js/              Browser-Skripte
   i18n/            Oberflächentexte (Vorgaben)
 server/api/        Die beiden PHP-Endpunkte
+assistant/         Der Redaktionsassistent — eigenes Repository, Submodul
 ```
 
 `src/` und `scripts/` müssen Geschwister bleiben: die Vorlagen binden
 `../../scripts/lib/html.mjs` ein.
+
+### Warum der Assistent ein eigenes Repository ist
+
+`npm run assistant` öffnet eine Bedienoberfläche im Browser, mit der
+Mitarbeiter ohne Terminal arbeiten können. Sie ist nicht nötig, um die
+Website zu betreiben: alles, was sie kann, geht auch über die
+Kommandozeile. Deshalb liegt sie in
+[biblia-werkzeug-assistant](https://github.com/schaefchens/biblia-werkzeug-assistant)
+und hängt als Submodul unter `assistant/`.
+
+```bash
+git submodule update --init assistant
+```
+
+`scripts/assistant.mjs` ist nur noch ein Einstieg von etwa dreissig Zeilen —
+die einzige Stelle, an der das Werkzeug den Assistenten überhaupt erwähnt.
+Fehlt das Submodul, sagt er das in einem Satz und nennt den Befehl.
+
+Der Ort ist nicht beliebig. Der Assistent benutzt ausser Node-Kernmodulen
+kein einziges Paket; das eine `pdf-lib`, mit dem er hochgeladene Druckdateien
+prüft, findet Node, weil es einen Paketnamen die Verzeichnisse nach oben
+absucht und in `werkzeug/node_modules/` fündig wird. Als direktes Kind des
+Werkzeugs braucht das Repository deshalb kein eigenes `npm install`, und
+seine Importe auf `../../scripts/lib/` bleiben gewöhnliche relative Pfade.
+
+Dass die Bedienoberfläche nicht auf den öffentlichen Server gerät, ist damit
+baulich erledigt statt durch eine Konvention: sie ist nicht einmal Teil
+dieses Repositories. `paths.test.mjs` hält die Gegenrichtung fest — `SYS`
+darf keinen Pfad nach `assistant/` bekommen, sonst könnte ein Glob im Build
+sie eines Tages doch mitnehmen.
 
 ### Die zwei Verzeichnisbäume
 
@@ -164,11 +195,26 @@ verschwindet (`/f/123/` steht auf gedruckten Flyern), und dass ein
 umbenannter Flyer eine Weiterleitung bekommt. `scripts/lib/repo.mjs` prüft
 deshalb nicht, ob Git antwortet, sondern ob es das richtige Repository ist.
 
+### QR-Codes
+
+`npm run build` legt zu jedem Flyer zwei QR-Codes in `print-assets/` ab:
+
+```
+print-assets/101-hoffnung/qr-de.svg        klassisch, scharfe Quadrate
+print-assets/101-hoffnung/qr-de-rund.svg   abgerundet
+```
+
+Beide enthalten dasselbe Muster und führen zur selben Kurzadresse — nur die
+Form der Felder unterscheidet sich. Für sehr kleinen Druck oder raues Papier
+ist der klassische die sicherere Wahl, weil scharfe Kanten für ein Lesegerät
+leichter zu finden sind.
+
 ### Alle Befehle
 
 | Befehl | Bedeutung |
 | --- | --- |
 | `npm run init -- <pfad>` | Neuen Inhaltsordner anlegen |
+| `npm run assistant` | Redaktionsoberfläche im Browser (eigenes Repository) |
 | `npm run check` | Inhalte prüfen |
 | `npm run build` | Website erzeugen |
 | `npm run preview` | Lokal ansehen |
@@ -208,5 +254,14 @@ etwas ändert, sollte sie kennen.
 * **Unter der endgültigen Domain wird streng geprüft.** Beispielinhalte,
   Platzhalter im Impressum und unzustellbare Empfängeradressen verhindern
   dann Build und Veröffentlichung.
+* **Die Oberfläche prüft mit derselben Prüfung wie die Kommandozeile.**
+  `scripts/lib/check.mjs` enthält auch die Prüfungen, die die
+  Versionsgeschichte lesen; `scripts/check.mjs` ist nur noch die Ausgabe.
+  Wer eine davon umgeht, hebt stillschweigend die beiden Zusagen oben auf.
+* **Die Oberfläche schreibt formaterhaltend.** `updateFrontmatter()` in
+  `scripts/lib/frontmatter.mjs` ersetzt nur die betroffene Stelle und prüft
+  danach gegen den YAML-Parser nach. Lässt sich eine Datei nicht sicher
+  ändern, wird nichts geschrieben — Kommentare und Reihenfolge sind das,
+  woran sich die Mitarbeiter beim Lesen orientieren.
 
 `CONCEPT.md` beschreibt die ursprünglichen Überlegungen zum Entwurf.

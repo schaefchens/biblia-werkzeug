@@ -10,12 +10,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import QRCode from 'qrcode';
+import { qrSvg, QR_STILE } from './qr-style.mjs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { registerFonts, FONT, FONT_VERSION } from './fonts.mjs';
 import { shortHash } from './emit.mjs';
 
 /** Version der Bildvorlage — gehört in den Schlüssel des Zwischenspeichers. */
-export const SOCIAL_TEMPLATE_VERSION = `1|${FONT_VERSION}`;
+// 2: QR-Codes gibt es jetzt in zwei Stilen.
+export const SOCIAL_TEMPLATE_VERSION = `2|${FONT_VERSION}`;
 
 const PALETTE = {
   paper: '#faf7f2',
@@ -272,18 +274,20 @@ export async function createSocialImages(options) {
   const qrWebFile = `qr-${shortHash(qrSmall)}.png`;
   fs.writeFileSync(path.join(dir, qrWebFile), qrSmall);
 
-  const qrSvg = await QRCode.toString(url, {
-    type: 'svg',
-    margin: 1,
-    errorCorrectionLevel: 'M',
-    color: { dark: '#000000', light: '#ffffff' },
-  });
-  fs.writeFileSync(path.join(dir, 'qr-print.svg'), qrSvg);
+  // Für den Druck in beiden Stilen: das Muster ist identisch, nur die Form
+  // der Felder unterscheidet sich. Welcher davon auf den Flyer kommt,
+  // entscheidet die Gestaltung.
+  const qrPrint = {};
+  for (const stil of QR_STILE) {
+    const datei = stil === 'klassisch' ? 'qr-print.svg' : `qr-print-${stil}.svg`;
+    fs.writeFileSync(path.join(dir, datei), await qrSvg(url, { style: stil, margin: 1, errorCorrectionLevel: 'M' }));
+    qrPrint[stil] = datei;
+  }
 
   return {
     share: { file: share.file, width: shareSize.width, height: shareSize.height, bytes: share.bytes },
     status: { file: status.file, width: statusSize.width, height: statusSize.height, bytes: status.bytes },
-    qr: { web: qrWebFile, print: 'qr-print.svg' },
+    qr: { web: qrWebFile, print: qrPrint.klassisch, prints: qrPrint },
     url,
   };
 }

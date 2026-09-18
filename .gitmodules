@@ -1,0 +1,3 @@
+[submodule "assistant"]
+	path = assistant
+	url = https://github.com/schaefchens/biblia-werkzeug-assistant.git

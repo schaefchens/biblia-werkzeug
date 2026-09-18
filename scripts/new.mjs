@@ -15,34 +15,11 @@ import { resolveHome, rel } from './lib/paths.mjs';
 import { loadConfig } from './lib/config.mjs';
 import { loadContent } from './lib/content.mjs';
 import { blank, color, heading, info, ok, runMain, warn } from './lib/log.mjs';
+import { slugify } from './lib/slug.mjs';
+import { sharedTemplate, languageTemplate } from './lib/flyer-neu.mjs';
 
-/** Macht aus einem Titel einen Kurznamen für die Adresse. */
-export function slugify(text) {
-  return (
-    String(text)
-      // Zuerst zusammensetzen, damit die Umlaute als ein Zeichen vorliegen.
-      .normalize('NFC')
-      // Deutsche Umlaute vor allem anderen ersetzen. Andernfalls würde die
-      // Zerlegung weiter unten aus "Über" ein "uber" machen statt des
-      // üblichen "ueber".
-      .replace(/ß/g, 'ss')
-      .replace(/[äÄ]/g, 'ae')
-      .replace(/[öÖ]/g, 'oe')
-      .replace(/[üÜ]/g, 'ue')
-      // Alle übrigen Akzente entfernen (é, à, ç …).
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 60)
-  );
-}
+export { slugify };
 
-/** Text so schreiben, dass YAML ihn sicher wieder einliest. */
-function yamlValue(text) {
-  return /^[A-Za-z0-9][A-Za-z0-9 .,_-]*$/.test(text) ? text : JSON.stringify(text);
-}
 
 runMain(async () => {
   const home = resolveHome();
@@ -151,26 +128,14 @@ runMain(async () => {
     // --- Anlegen ---
     fs.mkdirSync(target, { recursive: true });
 
-    let shared = `---\nid: ${nextId}\nslug: ${slug}\n`;
-    if (category) shared += `category: ${category}\n`;
-    if (chosenTopics.length > 0) shared += `topics:\n${chosenTopics.map((topic) => `  - ${topic}`).join('\n')}\n`;
-    shared += 'tags: []\n';
-    shared += 'bible_refs: []\n';
-    shared += '# Entwurf. Auf "published" setzen, sobald der Flyer erscheinen soll.\n';
-    shared += 'status: draft\n';
-    shared += `date: ${new Date().toISOString().slice(0, 10)}\n`;
-    shared += 'featured: false\n';
-    shared += '# Auf true setzen, wenn die PDF-Datei zum Herunterladen angeboten werden soll.\n';
-    shared += 'download: false\n';
-    shared += 'order:\n  enabled: true\n  price: 0\n  currency: EUR\n  min_quantity: 1\n  max_quantity: 100\n';
-    shared += '---\n';
-    fs.writeFileSync(path.join(target, 'flyer.md'), shared);
-
-    const languageFile =
-      `---\ntitle: ${yamlValue(title)}\n` +
-      `description: ""   # Ein bis zwei Sätze. Erscheint in der Übersicht und beim Teilen.\n---\n\n` +
-      `Hier kann ein längerer Text zum Flyer stehen. Er erscheint auf der Detailseite.\n`;
-    fs.writeFileSync(path.join(target, `flyer.${language.code}.md`), languageFile);
+    fs.writeFileSync(
+      path.join(target, 'flyer.md'),
+      sharedTemplate({ id: nextId, slug, category, topics: chosenTopics, currency: config.order.defaultCurrency }),
+    );
+    fs.writeFileSync(
+      path.join(target, `flyer.${language.code}.md`),
+      languageTemplate({ title }),
+    );
 
     if (pdfSource) {
       fs.copyFileSync(pdfSource, path.join(target, `flyer.${language.code}.pdf`));

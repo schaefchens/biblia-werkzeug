@@ -12,8 +12,19 @@ zu ändern.
 
 ## Der Alltag
 
-Drei Befehle genügen im Normalfall. Alle werden im Terminal **in diesem
-Ordner** eingegeben.
+Am bequemsten geht alles über die Bedienoberfläche im Browser:
+
+```bash
+npm run assistant
+```
+
+Sie öffnet sich von selbst und führt durch Anlegen, Prüfen, Vorschau und
+Veröffentlichen — ohne YAML, ohne Git, ohne weitere Befehle. Was sie
+schreibt, sind dieselben Dateien wie unten: beide Wege lassen sich
+nebeneinander benutzen.
+
+Wer lieber im Terminal arbeitet, kommt mit drei Befehlen aus. Alle werden
+**in diesem Ordner** eingegeben.
 
 ```bash
 npm run check      # Stimmen alle Inhalte?
@@ -21,7 +32,63 @@ npm run preview    # Wie sieht es aus?
 npm run publish    # Veröffentlichen
 ```
 
+### Die Oberfläche im Browser
+
+```bash
+npm run assistant                 # nur auf diesem Rechner
+npm run assistant -- --port 8080  # anderer Port
+npm run assistant -- --no-open    # Browser nicht öffnen
+npm run assistant -- --lan        # auch für andere im selben Netz
+```
+
+Ohne `--lan` ist die Oberfläche ausschliesslich auf diesem Rechner
+erreichbar. Mit `--lan` verlangt sie ein Kennwort; es steht in
+`BIBLIA_ASSISTANT_PASSWORD` in der Datei `sftp.env`, und fehlt es dort, wird
+für diesen Start eines erzeugt und im Terminal angezeigt. Der Zugriff erfolgt
+dann über die IP-Adresse, die das Terminal nennt — ein Name funktioniert
+absichtlich nicht.
+
+Die Oberfläche ist ein eigenes Repository und wird mit dem Werkzeug zusammen
+geladen. Meldet `npm run assistant`, sie sei nicht eingerichtet, fehlt genau
+das — einmalig nachholen:
+
+```bash
+git -C werkzeug submodule update --init assistant
+```
+
+Die Verbindung ist unverschlüsselt. `--lan` gehört deshalb nur in ein
+vertrauenswürdiges Netz; für den Dauerbetrieb HTTPS über einen lokalen
+Reverse Proxy oder ein VPN vorschalten.
+
+In der Flyerübersicht steht zu jedem Flyer sein Titelbild; beim Bearbeiten
+erscheint es gross, daneben die QR-Codes mit der Kurzadresse. Es gibt sie in
+zwei Stilen — klassisch mit scharfen Quadraten und abgerundet —, beide mit
+demselben Muster und derselben Adresse. Beide lassen sich als SVG
+herunterladen; es sind dieselben Dateien wie in `print-assets/`, für die
+Druckgestaltung. Für sehr kleinen Druck oder raues Papier ist der klassische
+die sicherere Wahl. Beides gibt es erst, nachdem einmal `npm run preview`
+oder die Vorschau in der Oberfläche gelaufen ist.
+
+Unter **Seiten** lassen sich Startseite, Über uns, Kontakt, Impressum und
+Datenschutz bearbeiten. Für Impressum und Datenschutz zeigt die Oberfläche
+dabei an, welche Platzhalter noch im Text stehen — genau die verhindern den
+Umzug auf die endgültige Domain.
+
+Unter **Einstellungen** lassen sich die Angaben aus `config/site.json`
+ändern — Name, Adresse, Empfängeradressen, Aufbewahrungsfristen, Sprachen —
+und die Zugangsdaten aus `sftp.env`. Passwörter und Schlüssel werden dabei
+nie angezeigt: es steht nur da, ob etwas hinterlegt ist. Ein leeres Feld
+lässt den bisherigen Wert stehen. Im Netzbetrieb (`--lan`) sind die
+Zugangsdaten gesperrt.
+
+Die Oberfläche kann auch Vorschläge von einer KI einholen. Das ist
+freiwillig: ohne hinterlegten Schlüssel funktioniert alles andere
+unverändert. Vorschläge werden nie von selbst gespeichert, und Bestellungen
+und Kontaktnachrichten sind für die KI technisch nicht erreichbar.
+
 ### Einen neuen Flyer anlegen
+
+In der Oberfläche: **Flyer → Neuer Flyer**. Im Terminal:
 
 ```bash
 npm run new
@@ -134,7 +201,7 @@ dann wurde beim Holen das `--recurse-submodules` vergessen und der Ordner
 `werkzeug/` ist leer geblieben. Einmalig nachholen:
 
 ```bash
-git submodule update --init
+git submodule update --init --recursive
 npm run setup
 ```
 
@@ -148,6 +215,7 @@ ausführt, liegt selbst in `werkzeug/`.
 
 | Befehl | Bedeutung |
 | --- | --- |
+| `npm run assistant` | Öffnet die Bedienoberfläche im Browser |
 | `npm run check` | Prüft alle Inhalte und meldet Fehler und Hinweise |
 | `npm run build` | Erzeugt die fertige Website in `dist/` |
 | `npm run preview` | Zeigt die Website lokal im Browser |

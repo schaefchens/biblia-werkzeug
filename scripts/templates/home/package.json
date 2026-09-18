@@ -5,6 +5,7 @@
   "description": "Inhalte der Biblia-Website",
   "type": "module",
   "scripts": {
+    "assistant": "node werkzeug/scripts/assistant.mjs",
     "check": "node werkzeug/scripts/check.mjs",
     "preview": "node werkzeug/scripts/preview.mjs",
     "publish": "node werkzeug/scripts/publish.mjs",

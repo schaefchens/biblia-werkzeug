@@ -46,6 +46,10 @@ const minify = !args.includes('--no-minify');
 const forceMedia = args.includes('--force-media');
 const quiet = args.includes('--quiet');
 const force = args.includes('--force');
+// --json hängt am Ende eine Zeile mit dem Ergebnis an, ohne die Ausgabe
+// darüber zu verändern: der Redaktionsassistent zeigt den Fortschritt und
+// liest das Ergebnis, ohne Fliesstext auswerten zu müssen.
+const json = args.includes('--json');
 
 /** Seitenteile paginieren. */
 function paginate(items, perPage) {
@@ -436,6 +440,22 @@ export async function build(options = {}) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   runMain(async () => {
     const outcome = await build();
+    if (json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          ok: outcome.ok,
+          files: outcome.emitter?.size ?? 0,
+          written: outcome.result?.written ?? 0,
+          unchanged: outcome.result?.unchanged ?? 0,
+          removed: outcome.result?.removed?.length ?? 0,
+          bytes: outcome.result?.bytes ?? 0,
+          errors: outcome.content?.issues?.errors.length ?? 0,
+          warnings: outcome.content?.issues?.warnings.length ?? 0,
+          linkProblems: outcome.linkReport?.problems.length ?? 0,
+          duration: outcome.duration ?? 0,
+        })}\n`,
+      );
+    }
     return outcome.ok ? 0 : 1;
   });
 }

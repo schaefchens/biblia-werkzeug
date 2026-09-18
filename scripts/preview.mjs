@@ -9,6 +9,7 @@
  * unentdeckt.
  *
  *   --port 8080     Anderer Port
+ *   --host 127.0.0.1  Nur an diese Adresse binden (Vorgabe: alle)
  *   --no-build      Vorhandenes dist/ verwenden, nicht neu bauen
  */
 import http from 'node:http';
@@ -25,6 +26,11 @@ const args = process.argv.slice(2);
 const portIndex = args.indexOf('--port');
 const port = portIndex >= 0 ? Number(args[portIndex + 1]) : 8080;
 const skipBuild = args.includes('--no-build');
+// Ohne Angabe wie bisher auf allen Schnittstellen — damit die Vorschau vom
+// Handy im selben Netz erreichbar bleibt. Der Redaktionsassistent gibt
+// ausdrücklich 127.0.0.1 an: seine Vorschau zeigt auch Entwürfe.
+const hostIndex = args.indexOf('--host');
+const host = hostIndex >= 0 ? args[hostIndex + 1] : null;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -152,7 +158,7 @@ runMain(async () => {
     else response.end('404');
   });
 
-  await new Promise((resolve) => server.listen(port, resolve));
+  await new Promise((resolve) => (host ? server.listen(port, host, resolve) : server.listen(port, resolve)));
 
   heading('Vorschau');
   ok(`http://localhost:${port}${basePath}`);

@@ -259,11 +259,18 @@ export async function buildMedia({
       // lokal für die Gestaltung bereit.
       const printDir = path.join(printRoot, `${flyer.id}-${flyer.slug}`);
       fs.mkdirSync(printDir, { recursive: true });
-      const printQr = fs.readFileSync(path.join(socialResult.dir, socialResult.meta.qr.print), 'utf8');
-      fs.writeFileSync(
-        path.join(printDir, `qr-${langCode}.svg`),
-        config.isStaging ? markAsTestOnly(printQr, permanentUrl) : printQr,
-      );
+      // Beide Stile: klassisch als qr-<sprache>.svg, die übrigen mit Zusatz.
+      // Ältere Zwischenspeicher kennen nur den klassischen — dann bleibt es
+      // dabei, bis er beim nächsten Mal neu erzeugt wird.
+      const printStile = socialResult.meta.qr.prints ?? { klassisch: socialResult.meta.qr.print };
+      for (const [stil, datei] of Object.entries(printStile)) {
+        const printQr = fs.readFileSync(path.join(socialResult.dir, datei), 'utf8');
+        const ziel = stil === 'klassisch' ? `qr-${langCode}.svg` : `qr-${langCode}-${stil}.svg`;
+        fs.writeFileSync(
+          path.join(printDir, ziel),
+          config.isStaging ? markAsTestOnly(printQr, permanentUrl) : printQr,
+        );
+      }
 
       // Druckausgabe zum Herunterladen, wenn im Flyer freigegeben.
       let downloadUrl = null;

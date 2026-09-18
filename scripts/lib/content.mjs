@@ -11,9 +11,8 @@ import { rel } from './paths.mjs';
 import { readMarkdownFile, ContentError } from './frontmatter.mjs';
 import { Issues } from './issues.mjs';
 import { renderMarkdown, markdownToPlainText, truncate } from './markdown.mjs';
+import { SLUG, FLYER_DIR } from './slug.mjs';
 
-const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const FLYER_DIR = /^(\d+)-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
 const STATUS = ['draft', 'published', 'archived'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const CURRENCY = /^[A-Z]{3}$/;

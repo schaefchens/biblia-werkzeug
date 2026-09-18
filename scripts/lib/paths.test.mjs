@@ -161,3 +161,18 @@ test('rel() fällt auf das Werkzeug zurück, solange kein Inhaltsordner bekannt 
   forgetHome();
   assert.equal(rel(path.join(SYS.root, 'scripts', 'build.mjs')), path.join('scripts', 'build.mjs'));
 });
+
+test('Das Werkzeug kennt keinen Pfad in den Redaktionsassistenten', () => {
+  // Die Bedienoberfläche ist ein eigenes Repository und liegt als Submodul
+  // unter assistant/. Bekäme SYS wieder einen Pfad dorthin, könnte ein Glob
+  // im Build sie eines Tages mit auf den öffentlichen Server tragen — genau
+  // der Fehler, gegen den die Trennung gebaut ist.
+  const assistent = path.join(SYS.root, 'assistant');
+  for (const [name, wert] of Object.entries(SYS)) {
+    if (typeof wert !== 'string') continue;
+    assert.ok(
+      wert !== assistent && !wert.startsWith(assistent + path.sep),
+      `SYS.${name} zeigt in den Assistenten: ${wert}`,
+    );
+  }
+});
